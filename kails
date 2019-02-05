@@ -1,0 +1,102 @@
+#!/usr/bin/env ruby
+require 'optparse'
+require 'ostruct'
+
+def letter?(char)
+  char =~ /[[:alpha:]]/
+end
+
+options = OpenStruct.new
+OptionParser.new do |opt|
+  opt.on('-n', '--new_project PROJECTNAME', 'Name of the new Project') { |o| options.new_project = o }
+end.parse!
+
+# creating new project
+
+if options.new_project == nil ||  ! letter?(options.new_project[0])
+  abort("You must provide a project name that start with a letter!")
+end
+
+puts "creating new rails project '#{options.new_project}'"
+if ! system( "rails new #{options.new_project} --skip-coffee --skip-sprockets --skip-turbolinks --webpack --database=postgresql  -T" )
+  abort("Failed to create new rails project!")
+end
+puts "comlpleting installation..."
+if ! system( "bundle exec spring binstub --all", chdir: options.new_project )
+  abort("cannot execute bundle slpring binstub")
+end
+if ! system( "echo \"> 1%\" > .browserslistrc", chdir: options.new_project )
+  abort("cannot edit .browserslistrc")
+end
+
+puts "editing application.rb ..."
+begin
+  replacement = "    config.generators do |g|\n      g.test_framework  false\n      g.stylesheets     false\n      g.javascripts     false\n      g.helper          false\n      g.channel         assets: false\n    end\n  end\nend"
+  file_name = "#{options.new_project}/config/application.rb"
+  text = File.read(file_name)
+  File.open(file_name, "w") {|file| file.puts text.gsub(/  end\nend/, replacement)}
+rescue
+  abort("cannot edit application.rb")
+end
+
+puts "removing asset folder ..."
+if ! system( "rm -Rf app/assets", chdir: options.new_project )
+  abort("cannot remove asset folder")
+end
+puts "moving javascript folder ..."
+if ! system( "mv app/javascript frontend", chdir: options.new_project )
+  abort("cannot move javascript folder")
+end
+puts "adding slim-rails gem ..."
+if ! system( "echo 'gem \"slim-rails\"' >> Gemfile", chdir: options.new_project )
+  abort("cannot edit Gemfile")
+end
+if ! system( "bundle install", chdir: options.new_project )
+  abort("cannot add slim-rails")
+end
+
+
+puts "removing  application.html.erb ..."
+if ! system( "rm app/views/layouts/application.html.erb", chdir: options.new_project )
+  abort("cannot remove application.html.erb")
+end
+
+puts "creating  application.html.slim ..."
+begin
+  file_name = "#{options.new_project}/app/views/layouts/application.html.slim"
+  aplication_slim = "doctype html\nhtml\n  head\n    title = \"#{options.new_project}\"\n    = csrf_meta_tags\n    = csp_meta_tag\n    = stylesheet_pack_tag 'application'\n  body\n    = yield\n    = javascript_pack_tag 'application' "
+  File.open(file_name, "w") {|file| file.write(aplication_slim)}
+rescue
+  abort("cannot edit application.html.slim")
+end
+
+
+puts "editing webpacker.yml ..."
+begin
+  file_name = "#{options.new_project}/config/webpacker.yml"
+  text = File.read(file_name)
+  File.open(file_name, "w") {|file| file.puts text.gsub(/source_path: app\/javascript/, "source_path: frontend")}
+rescue
+  abort("cannot edit webpacker.yml")
+end
+
+puts "editing application_controller.rb ..."
+begin
+  replacement = "  protect_from_forgery with: :exception
+  prepend_view_path Rails.root.join(\"frontend\")
+end"
+  file_name = "#{options.new_project}/app/controllers/application_controller.rb"
+  text = File.read(file_name)
+  File.open(file_name, "w") {|file| file.puts text.gsub(/end/, replacement)}
+rescue
+  abort("cannot edit application_controller.rb")
+end
+
+puts "creating Procfile ..."
+begin
+  string = "server: bin/rails server\nassets: bin/webpack-dev-server"
+  file_name = "#{options.new_project}/Procfile"
+  File.open(file_name, "w") {|file| file.write(string)}
+rescue
+  abort("cannot create Procfile")
+end
