@@ -49,6 +49,4 @@ $> heroku create
 $> git add . && git commit -m "clean commit"
 $> git push heroku master
 ```
-### Whats next ?
-- Automation of action cables to get real-time notification
-- Turbolinks to load komponents on the fly :)
+### Enjoy :D
