@@ -167,8 +167,17 @@ def create_project(name)
   end
 
   puts "adding normalize.css, turbolinks etc ..."
-  if ! system( "yarn add normalize.css turbolinks ", chdir: name )
+  if ! system( "yarn add normalize.css turbolinks postcss-nested", chdir: name )
     abort("cannot add normalize.css, check that you have yarn installed")
+  end
+  puts "editing .postcssrc.yml ..."
+  begin
+    replacement = "plugins:\n  postcss-nested: {}"
+    file_name = "#{name}/.postcssrc.yml"
+    text = File.read(file_name)
+    File.open(file_name, "w") {|file| file.puts text.gsub(/plugins:/, replacement)}
+  rescue
+    abort("cannot edit application.rb")
   end
 
   puts "creating  .stylelintrc ..."
@@ -203,7 +212,7 @@ def create_project(name)
   end
   begin
     file_name = "#{name}/frontend/init/index.js"
-    aplication_slim = "import Turbolinks from \"turbolinks\";\nTurbolinks.start();\n\nimport \"./index.css\";\n"
+    aplication_slim = "import Turbolinks from \"turbolinks\";\n\nimport \"./index.css\";\n\nTurbolinks.start();\n"
     File.open(file_name, "w") {|file| file.write(aplication_slim)}
   rescue
     abort("cannot create frontend/init/index.js")
