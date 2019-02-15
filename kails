@@ -55,9 +55,12 @@ def create_project(name)
   if ! system( "rm -Rf app/assets", chdir: name )
     abort("cannot remove asset folder")
   end
-
-  puts "adding slim-rails gem ..."
-  if ! system( "echo 'gem \"slim-rails\"' >> Gemfile", chdir: name )
+  puts "adding slim-rails turbolinks gems ..."
+  begin
+    open("#{name}/Gemfile", 'a') do |f|
+      f << "\ngem 'slim-rails'\ngem 'turbolinks'\n"
+    end
+  rescue
     abort("cannot edit Gemfile")
   end
 
@@ -74,7 +77,7 @@ def create_project(name)
   puts "creating  application.html.slim ..."
   begin
     file_name = "#{name}/app/views/layouts/application.html.slim"
-    aplication_slim = "doctype html\nhtml\n  head\n    title = \"#{name}\"\n    = csrf_meta_tags\n    = stylesheet_pack_tag 'application'\n  body\n    = yield\n    = javascript_pack_tag 'application'\n"
+    aplication_slim = "doctype html\nhtml\n  head\n    title = \"#{name}\"\n    = csrf_meta_tags\n    = stylesheet_pack_tag 'application', 'data-turbolinks-track': 'reload'\n    = javascript_pack_tag 'application', 'data-turbolinks-track': 'reload'\n  body\n    = yield\n"
     File.open(file_name, "w") {|file| file.write(aplication_slim)}
   rescue
     abort("cannot edit application.html.slim")
@@ -163,8 +166,8 @@ def create_project(name)
     abort("cannot create .eslintrc")
   end
 
-  puts "adding normalize.css ..."
-  if ! system( "yarn add normalize.css", chdir: name )
+  puts "adding normalize.css, turbolinks etc ..."
+  if ! system( "yarn add normalize.css turbolinks ", chdir: name )
     abort("cannot add normalize.css, check that you have yarn installed")
   end
 
@@ -200,7 +203,7 @@ def create_project(name)
   end
   begin
     file_name = "#{name}/frontend/init/index.js"
-    aplication_slim = "import \"./index.css\";\n"
+    aplication_slim = "import Turbolinks from \"turbolinks\";\nTurbolinks.start();\n\nimport \"./index.css\";\n"
     File.open(file_name, "w") {|file| file.write(aplication_slim)}
   rescue
     abort("cannot create frontend/init/index.js")
