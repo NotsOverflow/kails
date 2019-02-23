@@ -7,10 +7,12 @@
 
 ### Hello World
 
-> You need Rails, Yarn and Hivemind in order to run this
+> You need Ruby Gem, Yarn and [Hivemind](https://github.com/DarthSim/hivemind) in order to run this
+
 
 ```bash
 $> kails -n my_app && cd my_app
+# edit config/database.yml according to your configuration
 $> rails g controller home index
 $> rails g komponent hello
 ```
@@ -30,7 +32,9 @@ import "komponents/hello/hello";
 ```slim
 / frontend/komponents/hello/_hello.html.slim
 div[class="hello"]
-	= yield
+	p[id="1"]
+		= yield
+	p[id="2"]= "yolo!"
 ```
 ```slim
 / app/views/home/index.html.slim
