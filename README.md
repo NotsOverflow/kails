@@ -3,7 +3,7 @@
 ## Bringing Rails To 2019
 ![enter image description here](http://www.primeale.fr/wp-content/uploads/2016/01/4_choux.jpg)
 ### TL;DR
-> type ```kails -n my_project``` and watch Rails offering a native reactive Front-end, watch it reload the page each edit automatically, watch it edit your css and js according to airb'n'b guideline and more... :D
+> type ```kails -n my_project``` and watch Rails offer a native reactive Front-end, edit your css and js according to airb'n'b guideline and more... :D
 
 ### Hello World
 
