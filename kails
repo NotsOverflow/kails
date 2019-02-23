@@ -18,6 +18,10 @@ end
 ################################################ create project ################################
 
 def create_project(name)
+  puts "Double checking requirement ;)"
+  if ! system( "gem install bundler rails pg puma webpacker jbuilder bootsnap byebug web-console list spring spring-watcher-listen" )
+    abort("Failed install basic gems!\nTry to install them via package\n\t\n\tor maybe run:\n\tsudo gem install bundler rails pg puma webpacker jbuilder bootsnap byebug web-console list spring spring-watcher-listen\n\n")
+  end
   puts "creating new rails project '#{name}'"
   if ! system( "rails new #{name} --skip-bundle --skip-coffee --skip-sprockets --skip-turbolinks --webpack --database=postgresql  -T" )
     abort("Failed to create new rails project!")
@@ -253,6 +257,15 @@ def create_project(name)
     File.open(file_name, "w") {|file| file.write(aplication_slim)}
   rescue
     abort("cannot create puma.rb")
+  end
+  puts "editing database config ..."
+  begin
+    replacement = "default: &default\n  username: #{name}\n  password: <%= ENV['#{name.upcase}_DATABASE_PASSWORD'] %>"
+    file_name = "#{name}/config/database.yml"
+    text = File.read(file_name)
+    File.open(file_name, "w") {|file| file.puts text.gsub(/default: &default/, replacement)}
+  rescue
+    abort("cannot edit database.yml")
   end
   puts "cleaning bins ..."
   begin
