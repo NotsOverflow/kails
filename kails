@@ -82,8 +82,6 @@ def create_project(name)
   rescue
     abort("cannot edit application.html.slim")
   end
-
-
   puts "editing webpacker.yml ..."
   begin
     file_name = "#{name}/config/webpacker.yml"
@@ -237,7 +235,7 @@ def create_project(name)
   end
   begin
     file_name = "#{name}/lib/generators/komponent_generator.rb"
-    aplication_slim = "class KomponentGenerator < Rails::Generators::Base\n  argument :komponent_name, required: true, desc: \"Komponent name, e.g: button\"\n\n  def create_view_file\n    create_file \"\#{komponent_path}/_\#{komponent_name}.html.slim\"\n  end\n\n  def create_css_file\n    create_file \"\#{komponent_path}/\#{komponent_name}.css\"\n  end\n\n  def create_js_file\n    create_file \"\#{komponent_path}/\#{komponent_name}.js\" do\n      # require komponent's CSS inside JS automatically\n      \"import \\\"./\#{komponent_name}.css\\\";\\n\"\n    end\n  end\n\n  protected\n\n  def komponent_path\n    \"frontend/komponents/\#{komponent_name}\"\n  end\nend"
+    aplication_slim = "class KomponentGenerator < Rails::Generators::Base\n  argument :komponent_name, required: true, desc: \"Komponent name, e.g: button\"\n\n  def create_view_file\n    create_file \"\#{komponent_path}/_\#{komponent_name}.html.slim\" do\n      \"div[class=\\\"\#{komponent_name}\\\"]\\n  = yield\\n\"\n    end\n  end\n\n  def create_css_file\n    create_file \"\#{komponent_path}/\#{komponent_name}.css\" do\n      \".\#{komponent_name} {\\n  display: block;\\n}\\n\"\n    end\n  end\n\n  def create_js_file\n    create_file \"\#{komponent_path}/\#{komponent_name}.js\" do\n      \"import \\\"./\#{komponent_name}.css\\\";\\n\"\n    end\n  end\n\n  protected\n\n  def komponent_path\n    \"frontend/komponents/\#{komponent_name}\"\n  end\nend"
     File.open(file_name, "w") {|file| file.write(aplication_slim)}
   rescue
     abort("cannot create frontend/packs/application.js")
@@ -294,6 +292,3 @@ if options.key?(:new_project)
 else
   abort("You must provide an option, try '-h' for help !")
 end
-
-
-
