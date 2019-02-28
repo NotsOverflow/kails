@@ -13,6 +13,7 @@
 ```bash
 $> kails -n my_app && cd my_app
 # edit config/database.yml according to your configuration
+$> rails db:create
 $> rails g controller home index
 $> rails g komponent hello
 ```
