@@ -1,0 +1,300 @@
+#!/usr/bin/ruby
+require "optparse"
+require "ostruct"
+
+################################################ test functions ################################
+
+def letter?(char)
+  char =~ /[[:alpha:]]/
+end
+
+def in_rails?
+  false
+  if File.file?("Gemfile") && File.file?("frontend/packs/application.js")
+    true
+  end
+end
+
+################################################ create project ################################
+
+def create_project(name)
+  puts "Double checking requirement ;)"
+  if !system("gem install bundler rails pg puma webpacker jbuilder bootsnap byebug web-console list spring spring-watcher-listen")
+    abort("Failed install basic gems!\nTry to install them via package\n\t\n\tor maybe run:\n\tsudo gem install bundler rails pg puma webpacker jbuilder bootsnap byebug web-console list spring spring-watcher-listen\n\n")
+  end
+  puts "creating new rails project '#{name}'"
+  if !system("rails new #{name} --skip-bundle --skip-coffee --skip-sprockets --skip-turbolinks --webpack --database=postgresql  -T")
+    abort("Failed to create new rails project!")
+  end
+  if !system("echo \"\n/vendor/bundle/\" >> .gitignore", chdir: name)
+    abort("cannot edit .gitignore")
+  end
+  puts "Running bundle install installation..."
+  if !system("bundle install --path vendor/bundle", chdir: name)
+    abort("cannot execute bundle install, check if you are missing ruby-dev, postgresql-dev or any other lib")
+  end
+  puts "comlpleting installation..."
+  if !system("bundle exec spring binstub --all ", chdir: name)
+    abort("cannot execute bundle slpring binstub")
+  end
+
+  if !system("echo \"> 1%\" > .browserslistrc", chdir: name)
+    abort("cannot edit .browserslistrc")
+  end
+
+  puts "editing application.rb ..."
+  begin
+    replacement = "    config.generators do |g|\n      g.test_framework  false\n      g.stylesheets     false\n      g.javascripts     false\n      g.helper          false\n      g.channel         assets: false\n    end\n  end\nend"
+    file_name = "#{name}/config/application.rb"
+    text = File.read(file_name)
+    File.open(file_name, "w") { |file| file.puts text.gsub(/  end\nend/, replacement) }
+  rescue
+    abort("cannot edit application.rb")
+  end
+  puts "moving javascript folder ..."
+  if !system("mv app/javascript frontend", chdir: name)
+    abort("cannot move javascript folder, make sure to install webpack gem and any other missing one")
+  end
+  puts "removing asset folder ..."
+  if !system("rm -Rf app/assets", chdir: name)
+    abort("cannot remove asset folder")
+  end
+  puts "adding slim-rails turbolinks gems ..."
+  begin
+    open("#{name}/Gemfile", "a") do |f|
+      f << "\ngem 'slim-rails'\ngem 'turbolinks'\n"
+    end
+  rescue
+    abort("cannot edit Gemfile")
+  end
+
+  if !system("bundle install  --path vendor/bundle", chdir: name)
+    abort("cannot add slim-rails")
+  end
+
+  puts "removing  application.html.erb ..."
+  if !system("rm app/views/layouts/application.html.erb", chdir: name)
+    abort("cannot remove application.html.erb")
+  end
+
+  puts "creating  application.html.slim ..."
+  begin
+    file_name = "#{name}/app/views/layouts/application.html.slim"
+    aplication_slim = "doctype html\nhtml\n  head\n    title = \"#{name}\"\n    = csrf_meta_tags\n    = stylesheet_pack_tag 'application', 'data-turbolinks-track': 'reload'\n    = javascript_pack_tag 'application', 'data-turbolinks-track': 'reload'\n  body\n    = yield\n"
+    File.open(file_name, "w") { |file| file.write(aplication_slim) }
+  rescue
+    abort("cannot edit application.html.slim")
+  end
+  puts "editing webpacker.yml ..."
+  begin
+    file_name = "#{name}/config/webpacker.yml"
+    text = File.read(file_name)
+    File.open(file_name, "w") { |file| file.puts text.gsub(/source_path: app\/javascript/, "source_path: frontend") }
+  rescue
+    abort("cannot edit webpacker.yml")
+  end
+
+  puts "editing application_controller.rb ..."
+  begin
+    replacement = "  protect_from_forgery with: :exception
+    prepend_view_path Rails.root.join(\"frontend\")
+  end"
+    file_name = "#{name}/app/controllers/application_controller.rb"
+    text = File.read(file_name)
+    File.open(file_name, "w") { |file| file.puts text.gsub(/end/, replacement) }
+  rescue
+    abort("cannot edit application_controller.rb")
+  end
+
+  puts "creating Procfiles ..."
+  begin
+    string = "server: bin/rails server\nassets: bin/webpack-dev-server\n"
+    file_name = "#{name}/Procfile.dev"
+    File.open(file_name, "w") { |file| file.write(string) }
+  rescue
+    abort("cannot create Procfile.dev")
+  end
+  begin
+    string = "web: bundle exec puma -C config/puma.rb\n"
+    file_name = "#{name}/Procfile"
+    File.open(file_name, "w") { |file| file.write(string) }
+  rescue
+    abort("cannot create Procfile")
+  end
+
+  puts "removing  mailer.html.erb ..."
+  if !system("rm app/views/layouts/mailer.html.erb", chdir: name)
+    abort("cannot remove mailer.html.erb")
+  end
+
+  puts "creating  mailer.html.slim ..."
+  begin
+    file_name = "#{name}/app/views/layouts/mailer.html.slim"
+    aplication_slim = "doctype html\nhtml\n    head\n      meta[http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"]\n      style=\"/* Email styles need to be inline */\"\n    \n    body\n      = yield\n"
+    File.open(file_name, "w") { |file| file.write(aplication_slim) }
+  rescue
+    abort("cannot edit mailer.html.slim")
+  end
+
+  puts "removing  mailer.text.erb ..."
+  if !system("rm app/views/layouts/mailer.text.erb", chdir: name)
+    abort("cannot remove mailer.text.erb")
+  end
+
+  puts "creating  mailer.text.slim ..."
+  begin
+    file_name = "#{name}/app/views/layouts/mailer.text.slim"
+    aplication_slim = "= yield\n"
+    File.open(file_name, "w") { |file| file.write(aplication_slim) }
+  rescue
+    abort("cannot edit mailer.text.slim")
+  end
+
+  puts "adding yarn dev deps ..."
+  if !system("yarn add -D eslint babel-eslint eslint-config-airbnb-base eslint-config-prettier eslint-import-resolver-webpack eslint-plugin-import eslint-plugin-prettier lint-staged pre-commit prettier stylelint stylelint-config-standard", chdir: name)
+    abort("cannot add dev deps, check that you have yarn installed")
+  end
+
+  puts "creating  .eslintrc ..."
+  begin
+    file_name = "#{name}/.eslintrc"
+    aplication_slim = "{\n  \"extends\": [\"eslint-config-airbnb-base\", \"prettier\"],\n\n  \"plugins\": [\"prettier\"],\n\n  \"env\": {\n    \"browser\": true\n  },\n\n  \"rules\": {\n    \"prettier/prettier\": \"error\"\n  },\n\n  \"parser\": \"babel-eslint\",\n  \"settings\": {\n    \"import/resolver\": {\n      \"webpack\": {\n        \"config\": {\n          \"resolve\": {\n            \"modules\": [\"frontend\", \"node_modules\"]\n          }\n        }\n      }\n    }\n  }\n}"
+    File.open(file_name, "w") { |file| file.write(aplication_slim) }
+  rescue
+    abort("cannot create .eslintrc")
+  end
+
+  puts "adding normalize.css, turbolinks etc ..."
+  if !system("yarn add normalize.css turbolinks postcss-nested", chdir: name)
+    abort("cannot add normalize.css, check that you have yarn installed")
+  end
+  puts "editing .postcssrc.yml ..."
+  begin
+    replacement = "plugins:\n  postcss-nested: {}"
+    file_name = "#{name}/.postcssrc.yml"
+    text = File.read(file_name)
+    File.open(file_name, "w") { |file| file.puts text.gsub(/plugins:/, replacement) }
+  rescue
+    abort("cannot edit application.rb")
+  end
+
+  puts "creating  .stylelintrc ..."
+  begin
+    file_name = "#{name}/.stylelintrc"
+    aplication_slim = "{\n  \"extends\": \"stylelint-config-standard\"\n}"
+    File.open(file_name, "w") { |file| file.write(aplication_slim) }
+  rescue
+    abort("cannot create .stylelintrc")
+  end
+  puts "editing package.json ..."
+  begin
+    replacement = "\"scripts\": {\n    \"lint-staged\": \"$(yarn bin)/lint-staged\"\n  },\n  \"lint-staged\": {\n    \"config/webpack/**/*.js\": [\n      \"prettier --write\",\n      \"eslint\",\n      \"git add\"\n    ],\n    \"frontend/**/*.js\": [\n      \"prettier --write\",\n      \"eslint\",\n      \"git add\"\n    ],\n    \"frontend/**/*.css\": [\n      \"prettier --write\",\n      \"stylelint --fix\",\n      \"git add\"\n    ]\n  },\n  \"pre-commit\": [\n    \"lint-staged\"\n  ],\n  \"devDependencies\": {"
+    file_name = "#{name}/package.json"
+    text = File.read(file_name)
+    File.open(file_name, "w") { |file| file.puts text.gsub(/\"devDependencies\": {/, replacement) }
+  rescue
+    abort("cannot edit application.rb")
+  end
+  puts "adding template helper ..."
+  begin
+    replacement = "module ApplicationHelper\n  def komponent(komponent_name, locals = {}, &block)\n    name = komponent_name.split(\"_\").first\n    render(\"komponents/\#{name}/\#{komponent_name}\", locals, &block)\n  end\n\n  alias k komponent"
+    file_name = "#{name}/app/helpers/application_helper.rb"
+    text = File.read(file_name)
+    File.open(file_name, "w") { |file| file.puts text.gsub(/module ApplicationHelper/, replacement) }
+  rescue
+    abort("cannot edit application.rb")
+  end
+  puts "adding init component ..."
+  if !system("mkdir frontend/init", chdir: name)
+    abort("cannot create init folder")
+  end
+  begin
+    file_name = "#{name}/frontend/init/index.js"
+    aplication_slim = "import Turbolinks from \"turbolinks\";\n\nimport \"./index.css\";\n\nTurbolinks.start();\nwindow.ready = ( toExecute ) => {\n    if(toExecute && typeof toExecute === 'function') {\n        document.addEventListener(\"DOMContentLoaded\", () =>  {\n            if(document.readyState === \"interactive\" || document.readyState === \"complete\") {\n                return toExecute();\n            }\n        });\n    }\n};\n\nwindow.register = ( komponent, toExecute ) => {\n    if(komponent.match(/^[A-Z0-9]/i) ){\n        window.ready(() => {\n            const element = document.querySelector(\".\" + komponent);\n            if( typeof(element) != 'undefined' && element != null ){\n                toExecute(element);\n            }\n        });\n    }\n};\n"
+    File.open(file_name, "w") { |file| file.write(aplication_slim) }
+  rescue
+    abort("cannot create frontend/init/index.js")
+  end
+  begin
+    file_name = "#{name}/frontend/init/index.css"
+    aplication_slim = "@import \"normalize.css/normalize.css\";\n\nbody {\n font-family: \"Helvetica Neue\", Helvetica, Arial, sans-serif;\n font-size: 16px;\n line-height: 24px;\n}\n"
+    File.open(file_name, "w") { |file| file.write(aplication_slim) }
+  rescue
+    abort("cannot create frontend/init/index.css")
+  end
+  begin
+    file_name = "#{name}/frontend/packs/application.js"
+    aplication_slim = "import \"init\";\n"
+    File.open(file_name, "w") { |file| file.write(aplication_slim) }
+  rescue
+    abort("cannot create frontend/packs/application.js")
+  end
+  puts "adding komponent generator ..."
+  if !system("mkdir lib/generators", chdir: name)
+    abort("cannot create init folder")
+  end
+  begin
+    file_name = "#{name}/lib/generators/komponent_generator.rb"
+    aplication_slim = "class KomponentGenerator < Rails::Generators::Base\n  argument :komponent_name, required: true, desc: \"Komponent name, e.g: button\"\n\n  def create_view_file\n    create_file \"\#{komponent_path}/_\#{komponent_name}.html.slim\" do\n      \"div[class=\\\"\#{komponent_name}\\\"]\\n  = yield\\n\"\n    end\n  end\n\n  def create_css_file\n    create_file \"\#{komponent_path}/\#{komponent_name}.css\" do\n      \".\#{komponent_name} {\\n  display: block;\\n}\\n\"\n    end\n  end\n\n  def create_js_file\n    create_file \"\#{komponent_path}/\#{komponent_name}.js\" do\n      \"import \\\"./\#{komponent_name}.css\\\";\\n\\n/*\\n    function \#{komponent_name}(element) {\\n        // do stuff to element...\\n    }\\n\\n    window.register(\\\"\#{komponent_name}\\\", \#{komponent_name});\\n*/\\n\"\n    end\n  end\n\n  protected\n\n  def komponent_path\n    \"frontend/komponents/\#{komponent_name}\"\n  end\nend"
+    File.open(file_name, "w") { |file| file.write(aplication_slim) }
+  rescue
+    abort("cannot create frontend/packs/application.js")
+  end
+  if !system("mkdir frontend/komponents", chdir: name)
+    abort("cannot create komponent folder")
+  end
+  puts "creating  new puma.rb ..."
+  if !system("rm config/puma.rb", chdir: name)
+    abort("cannot remove puma")
+  end
+  begin
+    file_name = "#{name}/config/puma.rb"
+    aplication_slim = "workers Integer(ENV['WEB_CONCURRENCY'] || 2)\nthreads_count = Integer(ENV['RAILS_MAX_THREADS'] || 5)\nthreads threads_count, threads_count\n\npreload_app!\n\nrackup      DefaultRackup\nport        ENV['PORT']     || 3000\nenvironment ENV['RACK_ENV'] || 'development'\n    \non_worker_boot do\n  # Worker specific setup for Rails 4.1+\n  # See: https://devcenter.heroku.com/articles/deploying-rails-applications-with-the-puma-web-server#on-worker-boot\n  ActiveRecord::Base.establish_connection\nend\n"
+    File.open(file_name, "w") { |file| file.write(aplication_slim) }
+  rescue
+    abort("cannot create puma.rb")
+  end
+  puts "editing database config ..."
+  begin
+    replacement = "default: &default\n  username: #{name}\n  password: <%= ENV['#{name.upcase}_DATABASE_PASSWORD'] %>"
+    file_name = "#{name}/config/database.yml"
+    text = File.read(file_name)
+    File.open(file_name, "w") { |file| file.puts text.gsub(/default: &default/, replacement) }
+  rescue
+    abort("cannot edit database.yml")
+  end
+  puts "cleaning bins ..."
+  begin
+    dir_name = "#{name}/bin"
+    replacement = "#!/usr/bin/env ruby"
+    Dir.foreach(dir_name) do |item|
+      next if item == "." or item == ".."
+      file_path = "#{dir_name}/#{item}"
+      text = File.read(file_path)
+      File.open(file_path, "w") { |file| file.puts text.gsub(/#!\/usr\/bin\/env ruby.*/, replacement) }
+    end
+  rescue
+    abort("cannot edit bins")
+  end
+end
+
+################################################ parsing part ################################
+
+options = {}
+OptionParser.new do |opt|
+  opt.on("-n name", "--new_project name", "Create a new Project with provided name") { |o| options[:new_project] = o }
+end.parse!
+
+# options switch
+if options.key?(:new_project)
+  puts "Kails creating new porject called '#{options[:new_project]}'"
+  if !letter?(options[:new_project][0])
+    abort("You must provide a project name that start with a letter!")
+  end
+  if in_rails?
+    abort("You must run this command outside a rails project")
+  end
+  create_project(options[:new_project])
+else
+  abort("You must provide an option, try '-h' for help !")
+end
